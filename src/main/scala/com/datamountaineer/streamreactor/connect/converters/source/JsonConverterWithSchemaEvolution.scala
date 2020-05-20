@@ -81,11 +81,12 @@ object JsonConverterWithSchemaEvolution {
 
   def convert(name: String, str: String)(implicit schema: Option[Schema]): SchemaAndValue = convert(name, parse(str))
 
-  def convert(name: String, value: JValue)(implicit aggregatedSchema: Option[Schema]): SchemaAndValue = {
+  def convert(unformated_name: String, value: JValue)(implicit aggregatedSchema: Option[Schema]): SchemaAndValue = {
+    val name = unformated_name.replace("/", "_")
     value match {
       case JArray(arr) =>
         val values = new util.ArrayList[AnyRef]()
-        val prevSchema = aggregatedSchema.map(_.field(name)).map(_.schema)
+        val prevSchema = aggregatedSchema.map(_.valueSchema()).map(_.schema)
         val sv = convert(name, arr.head)(prevSchema)
         values.add(sv.value())
         arr.tail.foreach { v => values.add(convert(name, v)(prevSchema).value()) }
@@ -97,8 +98,8 @@ object JsonConverterWithSchemaEvolution {
         val schema = Decimal.builder(d.scale).optional().build()
         new SchemaAndValue(schema, Decimal.fromLogical(schema, d.bigDecimal))
       case JDouble(d) => new SchemaAndValue(Schema.OPTIONAL_FLOAT64_SCHEMA, d)
-      case JInt(i) => new SchemaAndValue(Schema.OPTIONAL_INT64_SCHEMA, i.toLong) //on purpose! LONG (we might get later records with long entries)
-      case JLong(l) => new SchemaAndValue(Schema.OPTIONAL_INT64_SCHEMA, l)
+      case JInt(i) => new SchemaAndValue(Schema.OPTIONAL_FLOAT64_SCHEMA, i.toDouble)  // workaround for now
+      case JLong(l) => new SchemaAndValue(Schema.OPTIONAL_FLOAT64_SCHEMA, l.toDouble)  // workaround for now
       case JNull | JNothing => new SchemaAndValue(Schema.OPTIONAL_STRING_SCHEMA, null)
       case JString(s) => new SchemaAndValue(Schema.OPTIONAL_STRING_SCHEMA, s)
       case JObject(values) =>
