@@ -119,7 +119,12 @@ object JsonConverterWithAvroSchema {
       case Schema.Type.BOOLEAN =>
         new java.lang.Boolean(value.extract[Boolean])
       case Schema.Type.STRING =>
-        value.extract[String]
+        value match {
+          case JString(str) => str
+          case JNull => null
+          case JNothing => null
+          case _ => throw new Exception("Not a string: " + value)
+        }
       case _ =>
         throw new Exception ("Type not supported yet for field " + name + " with schema " + schema + " and val " + value)
     }
