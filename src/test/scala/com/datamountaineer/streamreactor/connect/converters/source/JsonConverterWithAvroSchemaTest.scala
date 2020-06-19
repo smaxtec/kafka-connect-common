@@ -58,7 +58,7 @@ class JsonConverterWithAvroSchemaTest extends AnyWordSpec with Matchers {
     "handle a avro schema" in {
       val converter = new JsonConverterWithAvroSchema
       val carList = List[AvroCar](new AvroCar("n", Option("m"), 3, 1, 2.2))
-      val cars = CarTransporter("test", carList, "sdtring", Option(22), 3, 2.1)
+      val cars = CarTransporter("test", Option(new AvroCar("Truck", Option("m"), 3, 1, 2.2)), carList, Option("manuf."), Option(22), 3, 2.1)
       val avro = RecordFormat[CarTransporter].to(cars)
       print(avro.getSchema)
       initializeConverter(converter, avro.getSchema)
@@ -67,23 +67,27 @@ class JsonConverterWithAvroSchemaTest extends AnyWordSpec with Matchers {
         """
           |{
           |  "name": "transporter1",  "cars" : [{"name": "CAR1", "manufacturer": "man1", "model": 3, "bhp": 1, "price": 3}],
-          |  "manufacturer": "man2", "bhp": 3, "price": 3.1
+          |  "manufacturer": null, "bhp": 3, "price": 3.1
           |}
         """.stripMargin
       val record = converter.convert(topic, sourceTopic, "100", json.getBytes)
       record.value().asInstanceOf[Struct].getString("name") shouldBe "transporter1"
+      record.value().asInstanceOf[Struct].getString("manufacturer") shouldBe null
+      record.value().asInstanceOf[Struct].getStruct("truck") shouldBe null
       record.value().asInstanceOf[Struct].getInt64("model") shouldBe null
       record.value().asInstanceOf[Struct].getArray("cars").get(0).asInstanceOf[Struct].getString("name") shouldBe "CAR1"
 
       val json2 =
         """
           |{
-          |  "name": "transporter1",  "cars" : [{"name": "CAR1", "model": 3, "bhp": 1, "price": 3}],
+          |  "name": "transporter1", "truck": {"name": "truckcar", "manufacturer": "man1", "model": 3, "bhp": 1, "price": 3}, "cars" : [{"name": "CAR1", "model": 3, "bhp": 1, "price": 3}],
           |  "manufacturer": "man2", "bhp": 3, "price": 3, "model": 31
           |}
         """.stripMargin
       val record2 = converter.convert(topic, sourceTopic, "100", json2.getBytes)
       record2.value().asInstanceOf[Struct].getString("name") shouldBe "transporter1"
+      record2.value().asInstanceOf[Struct].getString("manufacturer") shouldBe "man2"
+      record2.value().asInstanceOf[Struct].getStruct("truck").getString("name") shouldBe "truckcar"
       record2.value().asInstanceOf[Struct].getInt64("model") shouldBe 31
       record2.value().asInstanceOf[Struct].getArray("cars").get(0).asInstanceOf[Struct].getString("name") shouldBe "CAR1"
     }
@@ -99,8 +103,9 @@ case class AvroCar(name: String,
 
 
 case class CarTransporter(name: String,
+                          truck: Option[AvroCar],
                           cars: List[AvroCar],
-                          manufacturer: String,
+                          manufacturer: Option[String],
                           model: Option[Long],
                           bhp: Long,
                           price: Double)
