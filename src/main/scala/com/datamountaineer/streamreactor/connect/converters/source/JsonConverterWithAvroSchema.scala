@@ -83,55 +83,61 @@ object JsonConverterWithAvroSchema {
 
   def convert(name: String, value: JValue, schema: Schema ): AnyRef = {
     implicit val formats = DefaultFormats
-
-    if (schema.isOptional() && value == JNull) {
-      null
-    }
-    else {
-      schema.`type`() match{
-        case Schema.Type.STRUCT =>
-          val struct = new Struct(schema)
-          schema.fields().toList.foreach{ field =>
-            val fieldSchema = field.schema()
-            val jValue = value.asInstanceOf[JObject] \ field.name()
-            if (jValue == JNothing && fieldSchema.isOptional()) {
-              struct.put(field.name(), null)
-            }
-            else {
-              val v = convert(field.name(), jValue, field.schema())
-              struct.put(field.name(), v)
-            }
-          }
-          struct
-        case Schema.Type.ARRAY =>
-          val jsonData = value.asInstanceOf[JArray]
-          val values = new util.ArrayList[AnyRef]()
-          jsonData.arr.foreach { v => values.add(convert(name, v, schema.valueSchema())) }
-          return values
-        case Schema.Type.INT8 =>
-          value.extract[Integer]
-        case Schema.Type.INT16 =>
-          value.extract[Integer]
-        case Schema.Type.INT32 =>
-          value.extract[Integer]
-        case Schema.Type.INT64 =>
-          new java.lang.Long(value.extract[Long])
-        case Schema.Type.FLOAT32 =>
-          new java.lang.Float(value.extract[Float])
-        case Schema.Type.FLOAT64 =>
-          new java.lang.Double(value.extract[Double])
-        case Schema.Type.BOOLEAN =>
-          new java.lang.Boolean(value.extract[Boolean])
-        case Schema.Type.STRING =>
-          value match {
-            case JString(str) => str
-            case _ => throw new Exception("Not a string: " + value)
-          }
-        case _ =>
-          throw new Exception ("Type not supported yet for field " + name + " with schema " + schema + " and val " + value)
+    try {
+      if (schema.isOptional() && value == JNull) {
+        null
       }
-    }
+      else {
+        schema.`type`() match {
+          case Schema.Type.STRUCT =>
+            val struct = new Struct(schema)
+            schema.fields().toList.foreach { field =>
+              val fieldSchema = field.schema()
+              val jValue = value.asInstanceOf[JObject] \ field.name()
+              if (jValue == JNothing && fieldSchema.isOptional()) {
+                struct.put(field.name(), null)
+              }
+              else {
+                val v = convert(field.name(), jValue, field.schema())
+                struct.put(field.name(), v)
+              }
+            }
+            struct
+          case Schema.Type.ARRAY =>
+            val jsonData = value.asInstanceOf[JArray]
+            val values = new util.ArrayList[AnyRef]()
+            jsonData.arr.foreach { v => values.add(convert(name, v, schema.valueSchema())) }
+            return values
+          case Schema.Type.INT8 =>
+            value.extract[Integer]
+          case Schema.Type.INT16 =>
+            value.extract[Integer]
+          case Schema.Type.INT32 =>
+            value.extract[Integer]
+          case Schema.Type.INT64 =>
+            new java.lang.Long(value.extract[Long])
+          case Schema.Type.FLOAT32 =>
+            new java.lang.Float(value.extract[Float])
+          case Schema.Type.FLOAT64 =>
+            new java.lang.Double(value.extract[Double])
+          case Schema.Type.BOOLEAN =>
+            new java.lang.Boolean(value.extract[Boolean])
+          case Schema.Type.STRING =>
+            value match {
+              case JString(str) => str
+              case _ => throw new Exception("Not a string: " + value)
+            }
+          case _ =>
+            throw new Exception("Type not supported yet for field " + name + " with schema " + schema + " and val " + value)
+        }
+      }
+    } catch {
+        case e: Exception =>
+          println("error for " + value + " and schema " + schema + " optional: " + schema.isOptional())
+          throw e
 
+
+    }
 
 
 
